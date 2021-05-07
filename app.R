@@ -2,10 +2,10 @@
 # Shiny app to display provisional monthly or quarterly TB notifications for
 # a country using JSON data retrieved from the WHO global tuberculosis database.
 # Using the Echarts for R package instead of ggplot2.
-# Hazim Timimi, February - March 2021
+# Hazim Timimi, May 2021
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-app_version <- "Version 1.0"
+app_version <- "Version 1.1"
 
 library(shiny)
 library(jsonlite)
@@ -27,7 +27,7 @@ ui <- fluidPage(
     # add CSS to colour headings and to prevent printing of the country selector dropdown
     tags$style(HTML("
     #page_header {padding-top: 10px;}
-    #provisional_heading {
+    #provisional_heading, #provisional_plus1_heading {
         color: #4b8f36;
         padding-left: 5px;}
     #annual_heading {
@@ -56,6 +56,18 @@ ui <- fluidPage(
         )
     ),
 
+    conditionalPanel(condition = "output.show_dcyear_plus1 == 1",
+
+        fluidRow(
+
+            column(width = 6,
+                   tags$div(style = "padding-left: 20px;"),
+                   textOutput(outputId = "provisional_plus1_heading", container = h3),
+                   echarts4rOutput("prov_plus1_plot")
+                   )
+        )
+    ),
+
     fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
                       textOutput(outputId = "page_footer"))
     ),
@@ -81,7 +93,6 @@ ui <- fluidPage(
 server <- function(input, output, session) {
 
     json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-
 
     # Get the latest list of counries with provisional data to use in country dropdown
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -131,28 +142,52 @@ server <- function(input, output, session) {
        return(json)
     })
 
+
+    # Determine whether there are data for dcyear + 1
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    output$show_dcyear_plus1 <- reactive ({
+        req(pdata()$c_newinc_prov)
+
+        nrow_dcyear_plus1 <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear + 1) %>%
+            nrow()
+
+        return(nrow_dcyear_plus1)
+
+    })
+
+    # Need this to make sure browser can switch elements back on again if hidden
+    outputOptions(output, "show_dcyear_plus1", suspendWhenHidden = FALSE)
+
+
+
     # Build an Echarts line graph of monthly or quarterly provisional new and relapse cases
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     output$prov_plot <- renderEcharts4r({
         # Make sure there are data to plot
-        req(pdata()$c_newinc)
+        req(pdata()$c_newinc_prov)
         req(pdata()$c_newinc_year)
 
-        # Find out whether we have monthly or quarterly data
-        frequency <- as.numeric(pdata()$c_newinc$report_frequency)
-        period_prefix <- ifelse(frequency == 71, "q_", "m_")
-        period_name  <- ifelse(frequency == 71, "Quarter", "Month")
-
-        # Store data collection year and selected country name in variables
+        # Store selected country name in variable
         # to make it easier to display in the chart
-        dcyear <- country_list_json()$dcyear
         selected_country <- country_list_json()$countries %>%
             filter(iso2 == input$iso2)
 
+        # Filter the provisional data to restrict to one year
+        data_to_plot <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear)
+
+        # Find out whether we have monthly or quarterly data
+        frequency <- as.numeric(data_to_plot$report_frequency)
+        period_prefix <- ifelse(frequency == 71, "q_", "m_")
+        period_name  <- ifelse(frequency == 71, "Quarter", "Month")
+
+
         # Get the total notification for the previous year and calculate the average monthly or quarterly
         previous_year <- pdata()$c_newinc_year %>%
-            filter(year == dcyear - 1) %>%
+            filter(year == country_list_json()$dcyear - 1) %>%
             select(c_newinc)
 
         previous_year_avge <- ifelse(frequency == 71, previous_year/4, previous_year/12) %>% as.numeric()
@@ -162,7 +197,7 @@ server <- function(input, output, session) {
         # noting that instead of using Javascript dot notation to set properties such as yAxis.axisTick.show = true
         # have to use an R list such as axisTick = list(show = FALSE)
 
-        prov_chart <-  pdata()$c_newinc %>%
+        prov_chart <-  data_to_plot %>%
 
             # Flip to long format
             pivot_longer(cols = starts_with(period_prefix),
@@ -183,7 +218,7 @@ server <- function(input, output, session) {
                                   function(params){
                                     return(
                                     '", period_name, " ' + params.value[0] + ', ",
-                                    dcyear,
+                                    country_list_json()$dcyear,
                                     "' + '<br />Number of cases: ' + params.value[1])
                                   }
                                 "))) %>%
@@ -203,14 +238,14 @@ server <- function(input, output, session) {
 
             # Add a horizontal line to show previous year's average notification by quarter/month
             e_mark_line(data = list(yAxis = previous_year_avge),
-                        title = paste0(dcyear - 1, "\nAverage"),
+                        title = paste0(country_list_json()$dcyear - 1, "\nAverage"),
 
                         # suppress mouseover tooltip:
                         silent = TRUE)
 
         # Before defining the y-axis properties
         # Calculate the maximum value of all the points and the previous year average
-        max_value <- pdata()$c_newinc %>%
+        max_value <- data_to_plot %>%
             select(starts_with(period_prefix)) %>%
             max() %>%
             max(c(previous_year_avge))
@@ -251,21 +286,22 @@ server <- function(input, output, session) {
 
     })
 
-    # Build an Echarts line graph of monthly or quarterly provisional new and relapse cases
+    # Build an Echarts line graph of annual new and relapse cases
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     output$annual_plot <- renderEcharts4r({
         # Make sure there are data to plot
         req(pdata()$c_newinc_year)
-        req(pdata()$c_newinc)
+        req(pdata()$c_newinc_prov)
 
         # Store the selected country name to make it easier to display in the chart
         selected_country <- country_list_json()$countries %>%
             filter(iso2 == input$iso2)
 
         # Calculate the total number of cases notified in dcyear
-        c_newinc_latest <- pdata()$c_newinc %>%
-            select(-starts_with("report_"), -starts_with("previous_year")) %>%
+        c_newinc_latest <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear) %>%
+            select(-starts_with("report_"), -year) %>%
             rowSums(na.rm = TRUE)
 
         # Append the total for dcyear to the annual timeseries
@@ -312,14 +348,87 @@ server <- function(input, output, session) {
 
     })
 
+
+    # Build an Echarts line graph of monthly or quarterly provisional new and relapse cases
+    # For dcyear+ 1 if available
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    output$prov_plus1_plot <- renderEcharts4r({
+
+        # Make sure there are data to plot
+        req(pdata()$c_newinc_prov)
+
+        # Store selected country name in variable
+        # to make it easier to display in the chart
+
+        selected_country <- country_list_json()$countries %>%
+            filter(iso2 == input$iso2)
+
+        # Filter the provisional data to restrict to one year
+        data_to_plot <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear + 1)
+
+        # Find out whether we have monthly or quarterly data
+        frequency <- as.numeric(data_to_plot$report_frequency)
+        period_prefix <- ifelse(frequency == 71, "q_", "m_")
+        period_name  <- ifelse(frequency == 71, "Quarter", "Month")
+
+        # Build the chart
+        prov_chart <-  data_to_plot %>%
+
+            # Flip to long format
+            pivot_longer(cols = starts_with(period_prefix),
+                         names_to = "period",
+                         # Add "0?" to the names_prefix regex to remove any leading zeros
+                         names_prefix = paste0(period_prefix, "0?"),
+                         values_to = "c_newinc") %>%
+
+            # Build the chart object
+            e_charts(x = period) %>%
+
+            e_line(serie = c_newinc,
+                   symbolSize = 12) %>%
+
+            e_title(text = selected_country[, "country"])   %>%
+
+            e_tooltip(formatter = JS(paste0("
+                                  function(params){
+                                    return(
+                                    '", period_name, " ' + params.value[0] + ', ",
+                                    country_list_json()$dcyear + 1,
+                                    "' + '<br />Number of cases: ' + params.value[1])
+                                  }
+                                "))) %>%
+
+            e_legend(FALSE) %>%
+
+            e_theme("green") %>%
+
+            # Adjust x axis properties
+            e_x_axis(name = period_name,
+                     nameLocation = 'middle',
+                     nameTextStyle = list(fontSize  = 14,
+                                          padding = 14) ) %>%
+
+            # Make sure large numbers are not truncated in exes labels
+            e_grid(containLabel = TRUE) %>%
+
+            # Y-axis properies
+            e_y_axis(axisLine = list(show = FALSE),
+                         axisTick = list(show = FALSE))
+
+    })
+
+
+
     # Put headers and footers in text output components rather than trying to fit them all in the
     # chart titles/subtitles
 
     output$page_header <- renderText({
         paste0("Select from high TB burden countries and other regional priority countries that reported",
-        " at least one case in the final reporting period of ",
-              country_list_json()$dcyear,
-        ":")
+               " at least one case in the final reporting period of ",
+               country_list_json()$dcyear,
+               ":")
     })
 
     output$annual_heading <- renderText({
@@ -331,10 +440,14 @@ server <- function(input, output, session) {
 
     output$provisional_heading <- renderText({
         # Make sure there are data to plot
-        req(pdata()$c_newinc)
+        req(pdata()$c_newinc_prov)
+
+        # Filter the provisional data to restrict to one year
+        data_to_plot <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear)
 
         # Find out whether we have monthly or quarterly data
-        frequency <- as.numeric(pdata()$c_newinc$report_frequency)
+        frequency <- as.numeric(data_to_plot$report_frequency)
         period_name  <- ifelse(frequency == 71, "quarter", "month")
 
         paste0("Provisional number of new and relapse TB cases per ",
@@ -344,15 +457,39 @@ server <- function(input, output, session) {
                "*")
     })
 
+    output$provisional_plus1_heading <- renderText({
+        # Make sure there are data to plot
+        req(pdata()$c_newinc_prov)
+
+        # Filter the provisional data to restrict to one year
+        data_to_plot <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear + 1)
+
+        # Find out whether we have monthly or quarterly data
+        frequency <- as.numeric(data_to_plot$report_frequency)
+        period_name  <- ifelse(frequency == 71, "quarter", "month")
+
+        paste0("Provisional number of new and relapse TB cases per ",
+               period_name,
+               ", ",
+               country_list_json()$dcyear + 1,
+               "*")
+    })
+
     output$page_footer <- renderText({
         # Make sure there are data to plot
-        req(pdata()$c_newinc)
+        req(pdata()$c_newinc_prov)
 
         # Is reporting comprehensive or partial?
-        coverage <- as.numeric(pdata()$c_newinc$report_coverage)
+        coverage <- pdata()$c_newinc_prov %>%
+            filter(year == country_list_json()$dcyear) %>%
+            select(report_coverage) %>%
+            as.numeric()
 
         paste0("* ",
               country_list_json()$dcyear,
+              " and ",
+              country_list_json()$dcyear + 1,
                # Customise the footnote for China
               ifelse(input$iso2 == "CN",
                      " data for China are for reported pulmonary TB cases published

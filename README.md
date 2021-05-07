@@ -16,7 +16,7 @@ The script can return two types of JSON file:
 
 ## Data updates
 
-WHO collects TB data annually from all countries and areas and publishes them in the  [Global Tuberculosis Report](https://www.who.int/teams/global-tuberculosis-programme/data), usually in October of each year. In 2020 WHO also started to collect provisional monthly or quarterly TB noifications from high TB burden and other regional priority countries in between annual data collectio rounds.
+WHO collects TB data annually from all countries and areas and publishes them in the  [Global Tuberculosis Report](https://www.who.int/teams/global-tuberculosis-programme/data), usually in October of each year. In 2020 WHO also started to collect provisional monthly or quarterly TB notifications from high TB burden and other regional priority countries in between annual data collection rounds.
 
 
 
