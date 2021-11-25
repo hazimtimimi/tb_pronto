@@ -16,21 +16,32 @@ output$annual_plot <- renderEcharts4r({
   selected_country <- country_list_json()$countries %>%
     filter(iso2 == input$iso2)
 
-  # # Calculate the total number of cases notified in dcyear
-  # c_newinc_latest <- pdata()$c_newinc_prov %>%
-  #     filter(year == country_list_json()$dcyear) %>%
-  #     select(-starts_with("report_"), -year) %>%
-  #     rowSums(na.rm = TRUE)
-  #
-  # # Append the total for dcyear to the annual timeseries
-  # c_newinc_annual <- rbind(pdata()$c_newinc_year,
-  #                          c(country_list_json()$dcyear, c_newinc_latest ) ) %>%
-  #
-
-  c_newinc_annual <- pdata()$c_newinc_year  %>%
-
+  c_newinc_annual <- pdata()$c_newinc_year %>%
     # Change the year column to text so that chart is similar to the provisional one
     mutate(year = as.character(year))
+
+  # Find out if there is a complete year's worth of provisional notifications
+  # to add to the published annual notifications
+  # notifications for the latest published year will be NA if not all periods are filled
+  publication_year_notifications <- pdata()$c_newinc_prov %>%
+
+    filter(year == pdata()$dcyear_published) %>%
+    mutate(c_newinc = ifelse(report_frequency == 71,
+                             q_1 + q_2 + q_3 + q_4,
+                             m_01 + m_02 + m_03 + m_04 + m_05 + m_06 +
+                               m_07 + m_08 + m_09 + m_10 + m_11 + m_12),
+           year = paste0(year, "*")) %>%
+    select(year, c_newinc) %>%
+    filter(!is.na(c_newinc))
+
+  if (nrow(publication_year_notifications == 1)) {
+
+    # Add the latest year of provisional notifications to the annual time series
+    c_newinc_annual <- rbind(c_newinc_annual, publication_year_notifications)
+
+  }
+
+
 
   # Create the chart
   c_newinc_annual %>%
@@ -112,8 +123,6 @@ output$prov_plot <- renderEcharts4r({
       )
 
   }
-
-
 
   # Get the total notification for 2019 (final pre-pandemic year) and calculate the average monthly or quarterly
   prepandemic_year <- pdata()$c_newinc_year %>%
