@@ -135,6 +135,29 @@ server <- function(input, output, session) {
        return(json)
     })
 
+
+    # Find out if there is a complete year's worth of provisional notifications
+    # to add to the published annual notifications
+    # notifications for the latest published year will be NA if not all periods are filled
+    publication_year_notifications <- reactive({
+
+        # Make sure there are data to use
+        req(pdata()$c_newinc_prov)
+        req(pdata()$dcyear_published)
+
+        pdata()$c_newinc_prov %>%
+
+            filter(year == pdata()$dcyear_published) %>%
+            mutate(c_newinc = ifelse(report_frequency == 71,
+                                     q_1 + q_2 + q_3 + q_4,
+                                     m_01 + m_02 + m_03 + m_04 + m_05 + m_06 +
+                                         m_07 + m_08 + m_09 + m_10 + m_11 + m_12),
+                   year = paste0(year, "*")) %>%
+            select(year, c_newinc) %>%
+            filter(!is.na(c_newinc))
+
+    })
+
     # Create the charts
     source("build_charts.r", local = TRUE)
 
@@ -148,8 +171,12 @@ server <- function(input, output, session) {
         paste0("Number of people with new or relapse episodes of TB notified per year, ",
                # timeseries starts 5 years before the most recent year of publication
                pdata()$dcyear_published - 5,
-               " - xxxx",
-               "*")
+               " - ",
+               # See if we have provisional data for the whole of the latest publication year
+               ifelse(nrow(publication_year_notifications()) == 1,
+                      paste0(pdata()$dcyear_published,"*"),
+                      pdata()$dcyear_published - 1)
+               )
     })
 
 
@@ -161,7 +188,7 @@ server <- function(input, output, session) {
         frequency <- as.numeric(min(pdata()$c_newinc_prov$report_frequency))
         period_name  <- ifelse(frequency == 71, "quarter", "month")
 
-        paste0("Provisional number of people with new or relapse episodes of TB notified per ",
+        paste0("Provisional* number of people with new or relapse episodes of TB notified per ",
                period_name)
     })
 
@@ -173,16 +200,16 @@ server <- function(input, output, session) {
         # Is reporting comprehensive or partial?
         data_to_plot <- pdata()$c_newinc_prov
 
-        report_coverage <- as.numeric(min(data_to_plot$report_coverage))
+        report_coverage <- as.numeric(max(data_to_plot$report_coverage))
 
         paste0("* ",
                # Customise the footnote for China
               ifelse(input$iso2 == "CN",
-                     " data for China are for reported pulmonary TB cases published
+                     " Data for China are for reported pulmonary TB cases published
                      in the monthly communicable disease surveillance reports of the China
                      Centres for Disease Control, adjusted by a factor of 0.7 to account for
                      the historical relationship between reported and notified cases. ",
-                     paste0(" data are provisional as reported to WHO by ",
+                     paste0(" Data are provisional as reported to WHO by ",
                              format(Sys.time(),
                                      format = "%Y-%m-%d %H:%M",
                                      tz = "GMT"),

@@ -22,25 +22,12 @@ output$annual_plot <- renderEcharts4r({
 
   # Find out if there is a complete year's worth of provisional notifications
   # to add to the published annual notifications
-  # notifications for the latest published year will be NA if not all periods are filled
-  publication_year_notifications <- pdata()$c_newinc_prov %>%
-
-    filter(year == pdata()$dcyear_published) %>%
-    mutate(c_newinc = ifelse(report_frequency == 71,
-                             q_1 + q_2 + q_3 + q_4,
-                             m_01 + m_02 + m_03 + m_04 + m_05 + m_06 +
-                               m_07 + m_08 + m_09 + m_10 + m_11 + m_12),
-           year = paste0(year, "*")) %>%
-    select(year, c_newinc) %>%
-    filter(!is.na(c_newinc))
-
-  if (nrow(publication_year_notifications == 1)) {
+  if (nrow(publication_year_notifications() == 1)) {
 
     # Add the latest year of provisional notifications to the annual time series
-    c_newinc_annual <- rbind(c_newinc_annual, publication_year_notifications)
+    c_newinc_annual <- rbind(c_newinc_annual, publication_year_notifications())
 
   }
-
 
 
   # Create the chart
