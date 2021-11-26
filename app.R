@@ -22,7 +22,7 @@ library(htmlwidgets)
 
 
 ui <- fluidPage(
-    title = "Provisional number of new and relapse TB cases",
+    title = "Provisional number of people notified with new or relapse episodes of TB",
 
     # add CSS to colour headings and to prevent printing of the country selector dropdown
     tags$style(HTML("
@@ -41,8 +41,8 @@ ui <- fluidPage(
     }")),
 
     fluidRow(tags$div(id = "page_header",
-                      HTML("Select from high TB burden countries and other regional priority countries
-                           that reported provisional notifications to WHO<br />"),
+                      HTML("Select from high tuberculosis (TB) burden countries and other regional priority countries
+                           that reported provisional notifications to the World Health Organization (WHO)<br />"),
                       uiOutput(outputId = "entities"))
              ),
 
@@ -83,9 +83,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
-    # json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-    json_url <- "http://localhost/generateJSON.asp"
-
+    json_url <- "https://extranet.who.int/tme/generateJSON.asp"
 
     # Get the latest list of countries with provisional data to use in country dropdown
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -217,7 +215,9 @@ server <- function(input, output, session) {
                              ),
               ifelse(report_coverage == 35,
                      " Does not include data from all reporting units.",
-                     "")
+                     ""),
+              " Monthly/quarterly totals for a given year may differ from the final and
+              official annual total subsequently reported to WHO."
              )
     })
 
