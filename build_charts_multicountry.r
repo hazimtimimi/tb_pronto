@@ -1,16 +1,16 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Build the dataframes for 30 HBSx to display annual and provisional monthly or quarterly
-# notifications using the echarts4r package (based on ECharts)
+# Build the dataframes for groups of countries to display annual and provisional monthly or quarterly
+# notifications using ggplot
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # ----------------  plot title  ---------------------#
 
 output$hbc_heading <- renderText({
   if(input$indicator == "provisional") {
     paste0("Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
-    
+
   } else {
     paste0("Number of people with new or relapse episodes of TB notified per year, 2016-2020")
-    
+
   }
 })
 
@@ -32,12 +32,12 @@ pdata_country <- reactive({
 } else {
 
     if(input$country_set == "30mpc") {
-      
+
       y<-c('AGO','BGD','BRA','CHN','IDN','IND','KEN','MMR','PAK','PER','PHL',
            'RUS','UGA','UKR','VNM','ZAF','ETH','MEX','PNG','THA','NPL','MYS',
            'ROU','ZWE','KAZ','AZE','KHM','COL','LSO','KGZ','UGA')
- 
-       
+
+
   } else {
 
     y<-c("KHM","RUS","ZWE")
@@ -58,21 +58,21 @@ pdata_count <- reactive({
 # define url to load json data
 url <- reactive({
   json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-  
+
   if(input$country_set == "30hbc") {
-    
+
     url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_hb_tb")
-    
+
   } else {
-    
+
   if(input$country_set == "30mpc") {
-    
+
     url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_shortfall_2020")
-    
+
   } else {
-    
+
     url <- paste0(json_url,"?ds=c_newinc_group&group_code=g_watchlist")
-    
+
   }
   }
 })
@@ -86,14 +86,14 @@ pdata_prov <- reactive({
   json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
   pr <- json[[2]]
   json[[1]] %>% inner_join(pr,by=c("iso2")) -> pr
-  
+
   # #load dataset
   # pr <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=provisional_notifications", header = T)
-  # 
+  #
   # y <- pdata_country()
-  # pr <- filter(pr, iso3 %in% y) 
-  
-  })  
+  # pr <- filter(pr, iso3 %in% y)
+
+  })
 
 
 # Generate a dataframe for annual data
@@ -104,15 +104,8 @@ pdata_annual <- reactive({
   json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
   cn <- json[[3]]
   json[[1]] %>% inner_join(cn,by=c("iso2")) -> cn
-  
-  # cn <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=notifications", header = TRUE)
-  # 
-  # y <- pdata_country()
-  # cn <- filter(cn, iso3 %in% y) %>%
-  #   select(country,iso3,year,c_newinc) %>%
-  #   filter(year %in% c(2016:2020))
-  
-})  
+
+})
 
 
 # Generate a dataframe for average in prepandemic year
@@ -121,19 +114,19 @@ pdata_prepandemic <- reactive({
 
   cn <- pdata_annual()
   pr <- pdata_prov()
-  
+
   pr2 <- pr %>% select(iso2,report_frequency) %>%
     add_row(iso2="CG",report_frequency=70)
   pr2 %>% inner_join(cn,by=c('iso2')) -> prepandemic_year
-  
+
   prepandemic_year_avge <- prepandemic_year %>%
     filter(year == 2019) %>%
     mutate(prepandemic_year_avge=as.numeric(ifelse(report_frequency == 71, c_newinc/4, c_newinc/12))) %>%
     unique()
 
-})  
+})
 
-    
+
 
 # Plot figure for HBCs: reactive > download
 #----------------------------------------------------------
@@ -144,16 +137,11 @@ multi_plot <- reactive({
     req(pdata_prepandemic())
     # Put the provisional data into a variable to make subsequent code easier to read
     data_to_plot <- pdata_prov()
-    
+
     # Find out whether we have monthly or quarterly data
     data_to_plot$frequency <- as.numeric(data_to_plot$report_frequency)
     data_to_plot$period_prefix <- ifelse(data_to_plot$frequency == 71, "q_", "m_")
     data_to_plot$period_name  <- ifelse(data_to_plot$frequency == 71, "Quarter", "Month")
-
-    # Build the chart
-    # Refer to https://echarts.apache.org/en/option.html for additional properties
-    # noting that instead of using Javascript dot notation to set properties such as yAxis.axisTick.show = true
-    # have to use an R list such as axisTick = list(show = FALSE)
 
     # df only with quarterly data
     df1 <- data_to_plot %>%
@@ -191,10 +179,10 @@ multi_plot <- reactive({
       add_row(country="Congo",year=2021,period="10",period_name="Month") %>%
       add_row(country="Congo",year=2021,period="11",period_name="Month") %>%
       add_row(country="Congo",year=2021,period="12",period_name="Month") %>%
-      
+
       # Grouping by year makes Echarts show each year as a separate line (named data series)
       group_by(year) %>%
-      mutate(text=ifelse(country=="Congo","No Data Available**",NA)) 
+      mutate(text=ifelse(country=="Congo","No Data Available**",NA))
 
     # df to be merged
     df <- rbind(df1,df2)
@@ -285,7 +273,7 @@ multi_plot <- reactive({
   }
 })
 
-# Plot figure for HBCs: reactive -> renderPlot
+# Plot figure for multiple countries: reactive -> renderPlot
 # ----------------------------------------------------------
 output$multiple_plot <- renderPlot({
   multi_plot()
@@ -296,13 +284,13 @@ output$multiple_plot.ui <- renderUI({
 })
 
 
-# Plot figure for HBCs: reactive -> downloadHandler
+# Plot figure for multiple countries: reactive -> downloadHandler
 #----------------------------------------------------------
 multi_plot_pdf <- reactive({
   p <- multi_plot()
-  
+
     if(input$indicator == "provisional") {
-      
+
       p <- p + facet_wrap(~ country,strip.position="top",ncol=5, scales="free")+
         ggtitle("Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020") +
         labs(caption =   paste0("* "," Data are provisional as reported to WHO by ",
@@ -315,8 +303,8 @@ multi_plot_pdf <- reactive({
           plot.title = element_text(color="limegreen", size=25, face="bold"),
           plot.caption = element_text(hjust = 0),
           panel.spacing = unit(5, "lines"),
-          plot.margin = unit(c(1,1,1,1), "cm")) 
-      
+          plot.margin = unit(c(1,1,1,1), "cm"))
+
     } else {
 
       p <- p + facet_wrap(~ country,strip.position="top",ncol=5, scales="free")+
@@ -327,33 +315,25 @@ multi_plot_pdf <- reactive({
           plot.margin = unit(c(1,1,1,1), "cm"))
 
     }
-  
+
 })
-  
+
 output$download_plot <- downloadHandler(
-    
-  filename = function() { 
+
+  filename = function() {
     paste0("multi_plot_",Sys.Date(),".pdf") },
 
   content = function(file) {
     if(input$country_set == "3gwc") {
       ggsave(file, plot = multi_plot_pdf(), device = "pdf",width=25,height=pdata_count()*6, title="TB notifications")
-      
+
     } else {
       ggsave(file, plot = multi_plot_pdf(), device = "pdf",width=45,height=pdata_count()*4.5, title="TB notifications")
-      
+
       }
-  
+
     }
 )
-
-# output$csv <- downloadHandler(
-#   filename = function() { paste0("multi_plot_",Sys.Date(),".csv") },
-#   content = function(file) {
-#     write.csv(pdata_country(), file,row.names = FALSE)
-#   }
-# )
-
 
 output$page_footer2 <- renderText({
   # Make sure there are data to plot
@@ -364,16 +344,16 @@ output$page_footer2 <- renderText({
          " UTC and subject to change.",
          " Monthly/quarterly totals for a given year may differ from the final and
               official annual total subsequently reported to WHO.")
-  
+
 })
 
 output$page_footer3 <- renderText({
   if(input$indicator == "provisional" & input$country_set == "30hbc") {
-  
+
   paste0("** No data available for Congo for provisional number of people with new or relapse episodes of TB notified per month or quarter.")
   } else {
     paste0("")
-    
+
   }
-  
+
 })
