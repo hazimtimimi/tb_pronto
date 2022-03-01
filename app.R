@@ -21,15 +21,15 @@ library(shinythemes)
 # Web interface code
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ui <- 
+ui <-
   navbarPage(
     "Provisional tuberculosis (TB) notifications",
   tabPanel(
     "Single country",
-  #--------------------- by country ---------------------#    
+  #--------------------- by country ---------------------#
   fluidPage(theme = shinytheme("sandstone"),
   title = "Provisional number of people notified with new or relapse episodes of TB",
-  
+
   # add CSS to colour headings and to prevent printing of the country selector dropdown
   tags$style(HTML("
     #page_header {
@@ -44,7 +44,7 @@ ui <-
     @media print {
         #entities, #page_header, #metadata {display: none;}
     }")),
-  
+
   fluidRow(tags$div(id = "page_header",
                     HTML("Select from high tuberculosis (TB) burden countries and other regional priority countries
                            that reported provisional notifications to the World Health Organization (WHO)<br />"),
@@ -52,7 +52,7 @@ ui <-
   ),
 
   fluidRow(
-    
+
     column(width = 6,
            tags$div(style = "padding-left: 20px;"),
            textOutput(outputId = "annual_heading", container = h3),
@@ -64,14 +64,14 @@ ui <-
            echarts4rOutput("prov_plot")
     )
   ),
-  
+
   fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
                     textOutput(outputId = "page_footer"))
   ),
-  
+
   fluidRow(tags$div(id = "metadata2",
                     style = "padding: 20px; font-style: italic; font-size: 80%;",
-                    
+
                     # Add app version number and links to GTB and Github
                     HTML(paste0(app_version,
                                 ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
@@ -81,7 +81,7 @@ ui <-
   ))
   )
   ),
-  
+
 tabPanel(
     "Groups of countries",
     # --------------------- 30 HBCs ---------------------#
@@ -93,32 +93,32 @@ tabPanel(
     @media print {
         #hbc_heading {display: none;}
     }")),
-      
-      fluidRow( 
+
+      fluidRow(
         tags$div(style = "padding-left: 20px;"),
         downloadButton('download_plot', 'Download')
       ),
-      
+
       br(),
- 
+
       radioButtons("indicator", HTML("Select an indicator:"),width=700,
                    choiceNames = list(
-                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, 2016-2020"), 
+                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, 2016-2020"),
                      tags$span(style = "font-size: 90%;", "Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
                    ),
                    choiceValues = list('annual', 'provisional'),
                    selected = "annual"),
-      
+
       radioButtons("country_set", HTML("Select a group of countries:"),width=700,
                    choiceNames = list(
-                     tags$span(style = "font-size: 90%;", "30 TB high burden countries"), 
+                     tags$span(style = "font-size: 90%;", "30 TB high burden countries"),
                      tags$span(style = "font-size: 90%;", "30 countries with the biggest contributions to the global shortfall in TB notifications in 2020 vs 2019"),
                      tags$span(style = "font-size: 90%;", "3 global TB watchlist countries")
                    ),
                    choiceValues = list('30hbc', '30mpc','3gwc'),
                    selected = "30hbc"),
-      
-      
+
+
       fluidRow(
       tags$div(
         tags$div(style = "padding-left: 20px;"),
@@ -138,17 +138,17 @@ tabPanel(
     fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
                       textOutput(outputId = "page_footer3"))
     ),
-    
+
     fluidRow(tags$div(id = "metadata",
                       style = "padding: 20px; font-style: italic; font-size: 80%;",
-                      
+
                       # Add app version number and links to GTB and Github
                       HTML(paste0(app_version,
                                   ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
                                   Data collected and published by the
                                   <a href='https://www.who.int/teams/global-tuberculosis-programme/data' target='_blank'>
                             World Health Organization</a>.</i>"))
-    )) 
+    ))
     )#fluidpage close
 ) # tabpanel close
 )
@@ -159,36 +159,36 @@ tabPanel(
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 server <- function(input, output, session) {
-  
+
   json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-  
+
   # Get the latest list of countries with provisional data to use in country dropdown
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  
+
   country_list_json <- reactive({
-    
+
     url <- paste0(json_url, "?ds=c_newinc_countries")
-    
+
     json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
-    
+
     return(json)
   })
-  
-  
+
+
   # Build the select country control
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  
+
   output$entities <- renderUI({
-    
+
     already_selected <- input$iso2
-    
+
     # Create a named list for selectInput
     country_list <- country_list_json()$countries %>%
       select(iso2, country) %>%
       arrange(country)
-    
+
     country_list <- setNames(country_list[,"iso2"], country_list[,"country"])
-    
+
     selectInput(inputId = "iso2",
                 label = "",
                 choices = country_list,
@@ -197,31 +197,31 @@ server <- function(input, output, session) {
                 selectize = FALSE,
                 width = "380px")
   })
-  
-  
+
+
   # Get the data as a JSON file for the chosen country
   # - - - - - - - - - - - - - - - - - - - - - - - - - -
-  
+
   pdata <- reactive({
-    
+
     url <- paste0(json_url, "?ds=c_newinc&iso2=", input$iso2)
-    
+
     json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
     return(json)
   })
-  
-  
+
+
   # Find out if there is a complete year's worth of provisional notifications
   # to add to the published annual notifications
   # notifications for the latest published year will be NA if not all periods are filled
   publication_year_notifications <- reactive({
-    
+
     # Make sure there are data to use
     req(pdata()$c_newinc_prov)
     req(pdata()$dcyear_published)
-    
+
     pdata()$c_newinc_prov %>%
-      
+
       filter(year == pdata()$dcyear_published) %>%
       mutate(c_newinc = ifelse(report_frequency == 71,
                                q_1 + q_2 + q_3 + q_4,
@@ -230,19 +230,19 @@ server <- function(input, output, session) {
              year = paste0(year, "*")) %>%
       select(year, c_newinc) %>%
       filter(!is.na(c_newinc))
-    
+
   })
-  
+
   # Create the charts
-  source("build_charts.r", local = TRUE)
-  
+  source("build_charts_onecountry.r", local = TRUE)
+
   # Put headers and footers in text output components rather than trying to fit them all in the
   # chart titles/subtitles
-  
+
   output$annual_heading <- renderText({
     # Make sure there are data to plot
     req(pdata()$dcyear_published)
-    
+
     paste0("Number of people with new or relapse episodes of TB notified per year, ",
            # timeseries starts 5 years before the most recent year of publication
            pdata()$dcyear_published - 5,
@@ -253,30 +253,30 @@ server <- function(input, output, session) {
                   pdata()$dcyear_published - 1)
     )
   })
-  
-  
+
+
   output$provisional_heading <- renderText({
     # Make sure there are data to plot
     req(pdata()$c_newinc_prov)
-    
+
     # Find out whether we have monthly or quarterly data
     frequency <- as.numeric(min(pdata()$c_newinc_prov$report_frequency))
     period_name  <- ifelse(frequency == 71, "quarter", "month")
-    
+
     paste0("Provisional* number of people with new or relapse episodes of TB notified per ",
            period_name)
   })
-  
-  
+
+
   output$page_footer <- renderText({
     # Make sure there are data to plot
     req(pdata()$c_newinc_prov)
-    
+
     # Is reporting comprehensive or partial?
     data_to_plot <- pdata()$c_newinc_prov
-    
+
     report_coverage <- as.numeric(max(data_to_plot$report_coverage))
-    
+
     paste0("* ",
            # Customise the footnote for China
            ifelse(input$iso2 == "CN",
@@ -297,12 +297,12 @@ server <- function(input, output, session) {
               official annual total subsequently reported to WHO."
     )
   })
-  
-  
-  #------------- HBC -----------------#
+
+
+  #------------- multiple countries -----------------#
   # Create the charts
-  source("build_charts2.r", local = TRUE)
-  
+  source("build_charts_multicountry.r", local = TRUE)
+
 }
 
 # Run the application
