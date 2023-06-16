@@ -6,11 +6,9 @@
 
 output$hbc_heading <- renderText({
   if(input$indicator == "provisional") {
-    paste0("Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
-
+    "Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020"
   } else {
-    paste0("Number of people with new or relapse episodes of TB notified per year, 2016-2020")
-
+    "Number of people with new or relapse episodes of TB notified per year, most recent 5 years"
   }
 })
 
@@ -86,12 +84,6 @@ pdata_prov <- reactive({
   json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
   pr <- json[[2]]
   json[[1]] %>% inner_join(pr,by=c("iso2")) -> pr
-
-  # #load dataset
-  # pr <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=provisional_notifications", header = T)
-  #
-  # y <- pdata_country()
-  # pr <- filter(pr, iso3 %in% y)
 
   })
 
@@ -205,14 +197,14 @@ multi_plot <- reactive({
       ggplot(aes(x = period, y = c_newinc, group=year, color=year)) +
       geom_line( size = 1.2
       ) +
-      scale_color_manual(values=c("dodgerblue3", "limegreen","deeppink2")) +
+      # Use the default colours of eCharts listed at https://echarts.apache.org/en/option.html#color
+      scale_color_manual(values=c('#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc')) +
       geom_point(size = 5) +
       geom_point(size = 3, color = "white") +
       geom_segment(data = df, aes(x = 0, y = prepandemic_year_avge, xend = Inf, yend = prepandemic_year_avge),
                    arrow = arrow(length = unit(0.03, "npc"), type="closed"),linetype = "dashed",color = "goldenrod3",size=0.9) +
       geom_text(data = df, aes(label=paste0("2019\naverage"),x=Inf,y=prepandemic_year_avge*1.1),hjust=1.2,col="grey50")+
       geom_text(data = df, aes(label=text,x=4,y=prepandemic_year_avge*0.6),hjust=-0.1,col="grey50",size=7)+
-      # geom_hline(data = df, aes(yintercept = prepandemic_year_avge), linetype = "dashed", color = "limegreen", size = 1) +
       facet_wrap(~ country,strip.position="top",ncol=3, scales="free",drop = FALSE)+
       xlab("Month/Quarter") +
       ylab(NULL)+ scale_y_continuous(labels = function(x) format(x, big.mark = " ",
@@ -308,7 +300,7 @@ multi_plot_pdf <- reactive({
     } else {
 
       p <- p + facet_wrap(~ country,strip.position="top",ncol=5, scales="free")+
-        ggtitle("Number of people with new or relapse episodes of TB notified per year, 2016-2020") +
+        ggtitle("Number of people with new or relapse episodes of TB notified per year, most recent 5 years") +
         theme(
           plot.title = element_text(color="dodgerblue3", size=25, face="bold"),
           panel.spacing = unit(5, "lines"),

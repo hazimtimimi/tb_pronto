@@ -5,7 +5,7 @@
 # Hazim Timimi, Takuya Yamanaka Feb 2022
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-app_version <- "Version 1.3"
+app_version <- "Version 1.4"
 
 library(shiny)
 library(jsonlite)
@@ -84,7 +84,7 @@ ui <-
 
 tabPanel(
     "Groups of countries",
-    # --------------------- 30 HBCs ---------------------#
+    # --------------------- MPanel plots for multiple countries ---------------------#
     fluidPage(
       tags$style(HTML("
     #hbc_heading {
@@ -103,7 +103,7 @@ tabPanel(
 
       radioButtons("indicator", HTML("Select an indicator:"),width=700,
                    choiceNames = list(
-                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, 2016-2020"),
+                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, most recent 5 years"),
                      tags$span(style = "font-size: 90%;", "Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
                    ),
                    choiceValues = list('annual', 'provisional'),
@@ -129,7 +129,6 @@ tabPanel(
           column(width = 12,
                tags$div(style = "padding-left: 20px;"),
                uiOutput("multiple_plot.ui")
-               # plotOutput(paste0("multiple_plot"), height = "auto")
                )),
 
     fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
