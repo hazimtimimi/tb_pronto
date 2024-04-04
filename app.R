@@ -2,10 +2,10 @@
 # Shiny app to display provisional monthly or quarterly TB notifications for
 # a country using JSON data retrieved from the WHO global tuberculosis database.
 # Using the Echarts for R package instead of ggplot2.
-# Hazim Timimi, Takuya Yamanaka Feb 2022
+# Hazim Timimi, Takuya Yamanaka Apr 2024
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-app_version <- "Version 1.4"
+app_version <- "Version 2.0"
 
 library(shiny)
 library(jsonlite)
@@ -16,6 +16,7 @@ library(htmlwidgets)
 library(ggplot2)
 library(ggtext)
 library(shinythemes)
+library(lubridate)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Web interface code
@@ -293,7 +294,8 @@ server <- function(input, output, session) {
                   " Does not include data from all reporting units.",
                   ""),
            " Monthly/quarterly totals for a given year may differ from the final and
-              official annual total subsequently reported to WHO."
+              official annual total subsequently reported to WHO.\n",
+           " For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
     )
   })
 
