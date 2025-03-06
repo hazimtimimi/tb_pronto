@@ -104,7 +104,7 @@ tabPanel(
 
       radioButtons("indicator", HTML("Select an indicator:"),width=700,
                    choiceNames = list(
-                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, most recent 5 years"),
+                     tags$span(style = "font-size: 90%;", "Number of people with new or relapse episodes of TB notified per year, most recent 5 years for which annual data have been reported to WHO"),
                      tags$span(style = "font-size: 90%;", "Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
                    ),
                    choiceValues = list('annual', 'provisional'),

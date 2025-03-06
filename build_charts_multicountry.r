@@ -9,7 +9,7 @@ output$hbc_heading <- renderText({
     paste0("Provisional* number of people with new or relapse episodes of TB notified per month or quarter since January 2020")
     
   } else {
-    paste0("Number of people with new or relapse episodes of TB notified per year, since 2018")
+    paste0("Number of people with new or relapse episodes of TB notified per year, most recent 5 years for which annual data have been reported to WHO")
     
   }
 })
@@ -332,7 +332,7 @@ multi_plot_pdf <- reactive({
   } else {
     
     p <- p + facet_wrap(~ country,strip.position="top",ncol=5, scales="free")+
-      ggtitle("Number of people with new or relapse episodes of TB notified per year, since 2018") +
+      ggtitle("Number of people with new or relapse episodes of TB notified per year, most recent 5 years for which annual data have been reported to WHO") +
       theme(
         plot.title = element_text(color="dodgerblue3", size=25, face="bold"),
         panel.spacing = unit(5, "lines"),
