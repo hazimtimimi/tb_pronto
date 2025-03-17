@@ -150,7 +150,65 @@ tabPanel(
                             World Health Organization</a>.</i>"))
     ))
     )#fluidpage close
-) # tabpanel close
+), # tabpanel close
+
+tabPanel(
+  "USAID supported country",
+  #--------------------- by country ---------------------#
+  fluidPage(title = "Provisional number of people notified with new or relapse episodes of TB",
+            
+            # add CSS to colour headings and to prevent printing of the country selector dropdown
+            tags$style(HTML("
+    #page_header {
+        padding-top: 10px;
+        padding-left: 20px;}
+    #annual_heading {
+        color: #1790cf;
+        padding-left: 5px;}
+    #provisional_heading {
+        color: #4b8f36;
+        padding-left: 5px;}
+    @media print {
+        #entities, #page_header, #metadata {display: none;}
+    }")),
+            
+            fluidRow(tags$div(id = "page_header2",
+                              HTML("Select from countries received funding from USAID
+                           that reported provisional notifications to the World Health Organization (WHO)<br />"),
+                              uiOutput(outputId = "entities2"))
+            ),
+            
+            fluidRow(
+              
+              column(width = 6,
+                     tags$div(style = "padding-left: 20px;"),
+                     textOutput(outputId = "annual_heading2", container = h3),
+                     echarts4rOutput("annual_usaid_plot")
+              ),
+              column(width = 6,
+                     tags$div(style = "padding-left: 20px;"),
+                     textOutput(outputId = "provisional_heading2", container = h3),
+                     echarts4rOutput("prov_usaid_plot")
+              )
+            ),
+            
+            fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
+                              textOutput(outputId = "page_footer4"))
+            ),
+            
+            fluidRow(tags$div(id = "metadata3",
+                              style = "padding: 20px; font-style: italic; font-size: 80%;",
+                              
+                              # Add app version number and links to GTB and Github
+                              HTML(paste0(app_version,
+                                          ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
+                                  Data collected and published by the
+                                  <a href='https://www.who.int/teams/global-tuberculosis-programme/data' target='_blank'>
+                            World Health Organization</a>.</i>"))
+            ))
+  )
+)
+
 )
 
 
@@ -304,6 +362,10 @@ server <- function(input, output, session) {
   # Create the charts
   source("build_charts_multicountry.r", local = TRUE)
 
+  #------------- USAID supported countries -----------------#
+  # Create the charts
+  source("build_charts_usaidfunded.r", local = TRUE)
+  
 }
 
 # Run the application
