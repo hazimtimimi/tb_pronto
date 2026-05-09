@@ -236,16 +236,10 @@ tabPanel(
 
 server <- function(input, output, session) {
 
-  # json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-
   # Get the latest list of countries with provisional data to use in country dropdown
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   country_list_json <- reactive({
-    # url <- paste0(json_url, "?ds=c_newinc_countries")
-    # json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
-    # return(json)
-    
     country_list_widp
   })
 
@@ -258,17 +252,7 @@ server <- function(input, output, session) {
     already_selected <- input$iso3
 
     # Create a named list for selectInput
-    # country_list <- country_list_json$countries %>%
-    # select(iso2, country) %>%
-    # arrange(country)
-    # 
-    # country_list <- setNames(country_list[,"iso2"], country_list[,"country"])
-    # 
-    # 
     country_list <- country_list_widp #%>%
-    #   select(iso3, country) %>%
-    #   arrange(country)
-    #
     country_list <- setNames(country_list$iso3, country_list$country)
 
     selectInput(inputId = "iso3",
@@ -285,12 +269,6 @@ server <- function(input, output, session) {
   # - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   pdata <- reactive({
-
-    # url <- paste0(json_url, "?ds=c_newinc&iso2=", input$iso2)
-    # 
-    # json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
-    # return(json)
-    
     req(input$iso3)
     
     c_newinc_prov <- provisional |>
@@ -361,12 +339,10 @@ server <- function(input, output, session) {
   # Create the charts
   source("build_charts_onecountry.r", local = TRUE)
 
-
   #------------- multiple countries -----------------#
   # Create the charts
   source("build_charts_multicountry.r", local = TRUE)
 
-  
 }
 
 # Run the application
