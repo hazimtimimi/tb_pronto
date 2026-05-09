@@ -22,7 +22,7 @@ load_gtb <- function(df_name,               #basename of data file/data.frame
 
     # Use function latest_snapshot_date() to identify the folder name with the latest GTB snapshot data
     # and load it into the local envirnment
-    load(paste0(paste0(here::here("data"),
+    load(paste0(paste0(here::here("local/data"),
                        "/snapshot_",
                        latest_snapshot_date(),
                        "/",

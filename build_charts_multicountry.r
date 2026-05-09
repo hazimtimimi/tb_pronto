@@ -55,44 +55,10 @@ pdata_count <- reactive({
   count <- round(count/3,0)
 })
 
-# define url to load json data
-# url <- reactive({
-#   json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-#   
-#   if(input$country_set == "30hbc") {
-#     
-#     url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_hb_tb")
-#     
-#   } else {
-#     
-#     if(input$country_set == "30mpc") {
-#       
-#       url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_shortfall_2020")
-#       
-#     } else {
-#       
-#       url <- paste0(json_url,"?ds=c_newinc_group&group_code=g_watchlist")
-#       
-#     }
-#   }
-# })
-
-
 # Generate a dataframe for provisional monthly dataset
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 pdata_prov <- reactive({
-  # req(url())
-  # json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
-  # pr <- json[[2]]
-  # json[[1]] |> inner_join(pr,by=c("iso2")) -> pr
-  
-  # #load dataset
-  # pr <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=provisional_notifications", header = T)
-  # 
-  # y <- pdata_country()
-  # pr <- filter(pr, iso3 %in% y) 
-  
   req(pdata_country())
   
   pdata_prov <- provisional |>
@@ -127,16 +93,6 @@ pdata_prov <- reactive({
   
   pdata_prov
   
-  # c_newinc_year <- tb |>
-  #   filter(iso3 == input$iso3) |>
-  #   select(year, c_newinc) 
-  # 
-  # pdata <- list()
-  # pdata$c_newinc_prov <- c_newinc_prov
-  # pdata$c_newinc_year <- c_newinc_year
-  # pdata$dcyear_published <- report_year
-  # pdata
-  
 })  
 
 
@@ -144,11 +100,7 @@ pdata_prov <- reactive({
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 pdata_annual <- reactive({
-  # req(url())
-  # json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
-  # cn <- json[[3]]
-  # json[[1]] |> inner_join(cn,by=c("iso2")) -> cn
-  # 
+
   req(pdata_country())
   
   pdata_annual <- tb |>
@@ -156,13 +108,6 @@ pdata_annual <- reactive({
     select(iso3, country, year, c_newinc)
   
   pdata_annual
-  
-  # cn <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=notifications", header = TRUE)
-  # 
-  # y <- pdata_country()
-  # cn <- filter(cn, iso3 %in% y) |>
-  #   select(country,iso3,year,c_newinc) |>
-  #   filter(year %in% c(2016:2020))
   
 })  
 
@@ -423,7 +368,7 @@ output$page_footer2 <- renderText({
          " UTC and subject to change.",
          " Monthly/quarterly totals for a given year may differ from the final and
               official annual total subsequently reported to WHO. \n",
-         "For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis.")
+         "For countries that reported the provisional number of TB notifications on a quarterly basis, the data are averaged as a monthly basis.")
   
 })
 

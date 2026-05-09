@@ -282,6 +282,6 @@ output$page_footer <- renderText({
                 ""),
          " Monthly/quarterly totals for a given year may differ from the final and
               official annual total subsequently reported to WHO.\n",
-         " For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
+         " For countries that reported the provisional number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
   )
 })

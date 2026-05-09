@@ -6,3 +6,6 @@
 tb_pronto.Rproj
 rsconnect
 README.html
+
+# Make sure any folder called "local" is ignored
+local/
