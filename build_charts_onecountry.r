@@ -13,8 +13,8 @@ output$annual_plot <- renderEcharts4r({
   req(pdata()$c_newinc_prov)
   
   # Store the selected country name to make it easier to display in the chart
-  selected_country <- country_list_json()$countries %>%
-    filter(iso2 == input$iso2)
+  selected_country <- country_list_json() %>%
+    filter(iso3 == input$iso3)
   
   c_newinc_annual <- pdata()$c_newinc_year %>%
     # Change the year column to text so that chart is similar to the provisional one
@@ -38,7 +38,7 @@ output$annual_plot <- renderEcharts4r({
     e_line(serie = c_newinc,
            symbolSize = 12) %>%
     
-    e_title(text = selected_country[, "country"])   %>%
+    e_title(text = selected_country$country)   %>%
     
     e_legend(FALSE) %>%
     
@@ -75,8 +75,8 @@ output$prov_plot <- renderEcharts4r({
   
   # Store selected country name in variable
   # to make it easier to display in the chart
-  selected_country <- country_list_json()$countries %>%
-    filter(iso2 == input$iso2)
+  selected_country <- country_list_json() %>%
+    filter(iso3 == input$iso3)
   
   # Put the provisional data into a variable to make subsequent code easier to read
   data_to_plot <- pdata()$c_newinc_prov
@@ -137,7 +137,7 @@ output$prov_plot <- renderEcharts4r({
     mutate(date = as.Date(paste(year, period, "01", sep="-"), format="%Y-%m-%d")) %>%
     filter(date < current_yearmonth-60) %>%
     
-    mutate(date = format(date, "%b %Y")) %>%
+    mutate(date = format(date, "%m/%y")) %>%
     
     # select(year, period, c_newinc) %>%
     
@@ -150,7 +150,7 @@ output$prov_plot <- renderEcharts4r({
     e_line(serie = c_newinc,
            symbolSize = 8) %>%
     
-    e_title(text = selected_country[, "country"])   %>%
+    e_title(text = selected_country$country)   %>%
     
     # params.seriesName is the year because the dataframe is grouped by year
     e_tooltip(formatter = JS(paste0("
@@ -266,7 +266,7 @@ output$page_footer <- renderText({
   
   paste0("* ",
          # Customise the footnote for China
-         ifelse(input$iso2 == "CN",
+         ifelse(input$iso3 == "CHN",
                 " Data for China are for reported pulmonary TB cases published
                      in the monthly communicable disease surveillance reports of the China
                      Centres for Disease Control, adjusted by a factor of 0.7 to account for
@@ -281,7 +281,7 @@ output$page_footer <- renderText({
                 " Does not include data from all reporting units.",
                 ""),
          " Monthly/quarterly totals for a given year may differ from the final and
-              official annual total subsequently reported to WHO. \n",
-         "For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
+              official annual total subsequently reported to WHO.\n",
+         " For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
   )
 })

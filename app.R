@@ -2,10 +2,10 @@
 # Shiny app to display provisional monthly or quarterly TB notifications for
 # a country using JSON data retrieved from the WHO global tuberculosis database.
 # Using the Echarts for R package instead of ggplot2.
-# Hazim Timimi, Takuya Yamanaka Apr 2024
+# Hazim Timimi, Takuya Yamanaka Apr 2024, updated May 2026
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-app_version <- "Version 2.0"
+app_version <- "Version 3.0"
 
 library(shiny)
 library(jsonlite)
@@ -17,6 +17,81 @@ library(ggplot2)
 library(ggtext)
 library(shinythemes)
 library(lubridate)
+library(gtbreport)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# load WIDP files
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+source(here("import/load_gtb.R"))
+snapshot_date <- latest_snapshot_date()
+report_year <- 2025 # update once the GTBR of the year released
+current_year <- year(Sys.Date()) 
+
+tb <- load_gtb("tb") |>
+  arrange(iso3)
+provisional <- load_gtb("provisional")
+
+# define full sequence
+years <- 2021:current_year
+
+months <- sprintf("%02d", 1:12)
+month_seq <- as.vector(outer(years, months, paste0))   # "202101" ... "202312"
+
+quarters <- paste0("Q", 1:4)
+quarter_seq <- as.vector(outer(years, quarters, paste0))  # "2021Q1" ... "2023Q4"
+
+full_periods <- c(month_seq, quarter_seq)
+
+provisional <- provisional |>
+  complete(
+    iso3, year = full_periods
+  ) |>
+  group_by(iso3) |>
+  fill(country, g_whoregion, .direction = "downup") |>
+  ungroup()
+
+# calc c_newinc
+tb <- tb |>
+  mutate(
+    c_newinc = if_else(
+      year >= 2025,
+      
+      {
+        tmp <- pick(matches("new|rec|unk"))
+        
+        ifelse(
+          rowSums(!is.na(tmp)) == 0,
+          NA_real_,
+          rowSums(tmp, na.rm = TRUE)
+        )
+      },
+      
+      {
+        tmp <- pick(any_of(c(
+          "new_labconf",
+          "new_clindx",
+          "ret_rel_labconf",
+          "ret_rel_clindx",
+          "new_ep",
+          "ret_rel_ep"
+        )))
+        
+        ifelse(
+          rowSums(!is.na(tmp)) == 0,
+          NA_real_,
+          rowSums(tmp, na.rm = TRUE)
+        )
+      }
+    )
+  ) |>
+  select(country, iso3, year, c_newinc) |>
+  filter(year < report_year)
+
+country_list_widp <- provisional |>
+  select(iso3, country) |>
+  distinct() |>
+  filter(iso3 != "ABW") |>
+  arrange(country)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Web interface code
@@ -75,7 +150,7 @@ ui <-
 
                     # Add app version number and links to GTB and Github
                     HTML(paste0(app_version,
-                                ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
+                                ", Source code on <a href='https://github.com/yamanakatakuya/tb_pronto/' target='_blank'>Github</a>.
                                   Data collected and published by the
                                   <a href='https://www.who.int/teams/global-tuberculosis-programme/data' target='_blank'>
                             World Health Organization</a>.</i>"))
@@ -144,70 +219,13 @@ tabPanel(
 
                       # Add app version number and links to GTB and Github
                       HTML(paste0(app_version,
-                                  ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
+                                  ", Source code on <a href='https://github.com/yamanakatakuya/tb_pronto/' target='_blank'>Github</a>.
                                   Data collected and published by the
                                   <a href='https://www.who.int/teams/global-tuberculosis-programme/data' target='_blank'>
                             World Health Organization</a>.</i>"))
     ))
     )#fluidpage close
-), # tabpanel close
-
-tabPanel(
-  "USAID supported country",
-  #--------------------- by country ---------------------#
-  fluidPage(title = "Provisional number of people notified with new or relapse episodes of TB",
-            
-            # add CSS to colour headings and to prevent printing of the country selector dropdown
-            tags$style(HTML("
-    #page_header {
-        padding-top: 10px;
-        padding-left: 20px;}
-    #annual_heading {
-        color: #1790cf;
-        padding-left: 5px;}
-    #provisional_heading {
-        color: #4b8f36;
-        padding-left: 5px;}
-    @media print {
-        #entities, #page_header, #metadata {display: none;}
-    }")),
-            
-            fluidRow(tags$div(id = "page_header2",
-                              HTML("Select from countries received funding from USAID
-                           that reported provisional notifications to the World Health Organization (WHO)<br />"),
-                              uiOutput(outputId = "entities2"))
-            ),
-            
-            fluidRow(
-              
-              column(width = 6,
-                     tags$div(style = "padding-left: 20px;"),
-                     textOutput(outputId = "annual_heading2", container = h3),
-                     echarts4rOutput("annual_usaid_plot")
-              ),
-              column(width = 6,
-                     tags$div(style = "padding-left: 20px;"),
-                     textOutput(outputId = "provisional_heading2", container = h3),
-                     echarts4rOutput("prov_usaid_plot")
-              )
-            ),
-            
-            fluidRow(tags$div(style = "padding-left: 20px; padding-right: 20px;",
-                              textOutput(outputId = "page_footer4"))
-            ),
-            
-            fluidRow(tags$div(id = "metadata3",
-                              style = "padding: 20px; font-style: italic; font-size: 80%;",
-                              
-                              # Add app version number and links to GTB and Github
-                              HTML(paste0(app_version,
-                                          ", Source code on <a href='https://github.com/hazimtimimi/tb_pronto/' target='_blank'>Github</a>.
-                                  Data collected and published by the
-                                  <a href='https://www.who.int/teams/global-tuberculosis-programme/data' target='_blank'>
-                            World Health Organization</a>.</i>"))
-            ))
-  )
-)
+) # tabpanel close
 
 )
 
@@ -218,18 +236,17 @@ tabPanel(
 
 server <- function(input, output, session) {
 
-  json_url <- "https://extranet.who.int/tme/generateJSON.asp"
+  # json_url <- "https://extranet.who.int/tme/generateJSON.asp"
 
   # Get the latest list of countries with provisional data to use in country dropdown
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   country_list_json <- reactive({
-
-    url <- paste0(json_url, "?ds=c_newinc_countries")
-
-    json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
-
-    return(json)
+    # url <- paste0(json_url, "?ds=c_newinc_countries")
+    # json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
+    # return(json)
+    
+    country_list_widp
   })
 
 
@@ -238,16 +255,23 @@ server <- function(input, output, session) {
 
   output$entities <- renderUI({
 
-    already_selected <- input$iso2
+    already_selected <- input$iso3
 
     # Create a named list for selectInput
-    country_list <- country_list_json()$countries %>%
-      select(iso2, country) %>%
-      arrange(country)
+    # country_list <- country_list_json$countries %>%
+    # select(iso2, country) %>%
+    # arrange(country)
+    # 
+    # country_list <- setNames(country_list[,"iso2"], country_list[,"country"])
+    # 
+    # 
+    country_list <- country_list_widp #%>%
+    #   select(iso3, country) %>%
+    #   arrange(country)
+    #
+    country_list <- setNames(country_list$iso3, country_list$country)
 
-    country_list <- setNames(country_list[,"iso2"], country_list[,"country"])
-
-    selectInput(inputId = "iso2",
+    selectInput(inputId = "iso3",
                 label = "",
                 choices = country_list,
                 # next line needed to avoid losing the selected country when the language is changed
@@ -262,10 +286,53 @@ server <- function(input, output, session) {
 
   pdata <- reactive({
 
-    url <- paste0(json_url, "?ds=c_newinc&iso2=", input$iso2)
+    # url <- paste0(json_url, "?ds=c_newinc&iso2=", input$iso2)
+    # 
+    # json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
+    # return(json)
+    
+    req(input$iso3)
+    
+    c_newinc_prov <- provisional |>
+      filter(iso3 == input$iso3) |>
+      select(year, newinc_prov) |>
+      mutate(
+        year_month = year,
+        year = str_sub(year_month, 1, 4),
+        
+        period = case_when(
+          str_detect(year_month, "Q") ~
+            paste0("q_", str_sub(year_month, 6, 6)),
+          
+          TRUE ~
+            paste0("m_", str_sub(year_month, 5, 6))
+        )
+      ) |>
+      select(year, period, newinc_prov) |>
+      pivot_wider(
+        names_from = period,
+        values_from = newinc_prov
+      )  |>
+      mutate(
+        report_frequency = if_any(
+          any_of(c("q_1", "q_2", "q_3", "q_4")),
+          ~ !is.na(.)
+        ) |>
+          ifelse(71, 70),
+        report_coverage = 35
+      ) |>
+      arrange(year)
+    
+    c_newinc_year <- tb |>
+      filter(iso3 == input$iso3) |>
+      select(year, c_newinc) 
+    
+    pdata <- list()
+    pdata$c_newinc_prov <- c_newinc_prov
+    pdata$c_newinc_year <- c_newinc_year
+    pdata$dcyear_published <- report_year
+    pdata
 
-    json <- fromJSON(readLines(url, warn = FALSE, encoding = 'UTF-8'))
-    return(json)
   })
 
 
@@ -280,7 +347,7 @@ server <- function(input, output, session) {
 
     pdata()$c_newinc_prov %>%
 
-      filter(year == pdata()$dcyear_published) %>%
+      filter(year == pdata()$dcyear_published) |>
       mutate(c_newinc = ifelse(report_frequency == 71,
                                q_1 + q_2 + q_3 + q_4,
                                m_01 + m_02 + m_03 + m_04 + m_05 + m_06 +
@@ -294,77 +361,11 @@ server <- function(input, output, session) {
   # Create the charts
   source("build_charts_onecountry.r", local = TRUE)
 
-  # Put headers and footers in text output components rather than trying to fit them all in the
-  # chart titles/subtitles
-
-  output$annual_heading <- renderText({
-    # Make sure there are data to plot
-    req(pdata()$dcyear_published)
-
-    paste0("Number of people with new or relapse episodes of TB notified per year, ",
-           # timeseries starts 5 years before the most recent year of publication
-           pdata()$dcyear_published - 5,
-           " - ",
-           # See if we have provisional data for the whole of the latest publication year
-           ifelse(nrow(publication_year_notifications()) == 1,
-                  paste0(pdata()$dcyear_published,"*"),
-                  pdata()$dcyear_published - 1)
-    )
-  })
-
-
-  output$provisional_heading <- renderText({
-    # Make sure there are data to plot
-    req(pdata()$c_newinc_prov)
-
-    # Find out whether we have monthly or quarterly data
-    frequency <- as.numeric(min(pdata()$c_newinc_prov$report_frequency))
-    period_name  <- ifelse(frequency == 71, "quarter", "month")
-
-    paste0("Provisional* number of people with new or relapse episodes of TB notified per ",
-           period_name)
-  })
-
-
-  output$page_footer <- renderText({
-    # Make sure there are data to plot
-    req(pdata()$c_newinc_prov)
-
-    # Is reporting comprehensive or partial?
-    data_to_plot <- pdata()$c_newinc_prov
-
-    report_coverage <- as.numeric(max(data_to_plot$report_coverage))
-
-    paste0("* ",
-           # Customise the footnote for China
-           ifelse(input$iso2 == "CN",
-                  " Data for China are for reported pulmonary TB cases published
-                     in the monthly communicable disease surveillance reports of the China
-                     Centres for Disease Control, adjusted by a factor of 0.7 to account for
-                     the historical relationship between reported and notified cases. ",
-                  paste0(" Data are provisional as reported to WHO by ",
-                         format(Sys.time(),
-                                format = "%Y-%m-%d %H:%M",
-                                tz = "GMT"),
-                         " UTC and subject to change.")
-           ),
-           ifelse(report_coverage == 35,
-                  " Does not include data from all reporting units.",
-                  ""),
-           " Monthly/quarterly totals for a given year may differ from the final and
-              official annual total subsequently reported to WHO.\n",
-           " For countries that reported the providinal number of TB notifications on a quarterly basis, the data are averaged as a monthly basis."
-    )
-  })
-
 
   #------------- multiple countries -----------------#
   # Create the charts
   source("build_charts_multicountry.r", local = TRUE)
 
-  #------------- USAID supported countries -----------------#
-  # Create the charts
-  source("build_charts_usaidfunded.r", local = TRUE)
   
 }
 

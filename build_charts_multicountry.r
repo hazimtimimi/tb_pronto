@@ -56,42 +56,86 @@ pdata_count <- reactive({
 })
 
 # define url to load json data
-url <- reactive({
-  json_url <- "https://extranet.who.int/tme/generateJSON.asp"
-  
-  if(input$country_set == "30hbc") {
-    
-    url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_hb_tb")
-    
-  } else {
-    
-    if(input$country_set == "30mpc") {
-      
-      url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_shortfall_2020")
-      
-    } else {
-      
-      url <- paste0(json_url,"?ds=c_newinc_group&group_code=g_watchlist")
-      
-    }
-  }
-})
+# url <- reactive({
+#   json_url <- "https://extranet.who.int/tme/generateJSON.asp"
+#   
+#   if(input$country_set == "30hbc") {
+#     
+#     url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_hb_tb")
+#     
+#   } else {
+#     
+#     if(input$country_set == "30mpc") {
+#       
+#       url <- paste0(json_url, "?ds=c_newinc_group&group_code=g_shortfall_2020")
+#       
+#     } else {
+#       
+#       url <- paste0(json_url,"?ds=c_newinc_group&group_code=g_watchlist")
+#       
+#     }
+#   }
+# })
 
 
 # Generate a dataframe for provisional monthly dataset
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 pdata_prov <- reactive({
-  req(url())
-  json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
-  pr <- json[[2]]
-  json[[1]] %>% inner_join(pr,by=c("iso2")) -> pr
+  # req(url())
+  # json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
+  # pr <- json[[2]]
+  # json[[1]] |> inner_join(pr,by=c("iso2")) -> pr
   
   # #load dataset
   # pr <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=provisional_notifications", header = T)
   # 
   # y <- pdata_country()
   # pr <- filter(pr, iso3 %in% y) 
+  
+  req(pdata_country())
+  
+  pdata_prov <- provisional |>
+    filter(iso3 %in% pdata_country()) |>
+    select(iso3, country, year, newinc_prov) |>
+    mutate(
+      year_month = year,
+      year = str_sub(year_month, 1, 4),
+      
+      period = case_when(
+        str_detect(year_month, "Q") ~
+          paste0("q_", str_sub(year_month, 6, 6)),
+        
+        TRUE ~
+          paste0("m_", str_sub(year_month, 5, 6))
+      )
+    ) |>
+    select(iso3, country, year, period, newinc_prov) |>
+    pivot_wider(
+      names_from = period,
+      values_from = newinc_prov
+    )  |>
+    mutate(
+      report_frequency = if_any(
+        any_of(c("q_1", "q_2", "q_3", "q_4")),
+        ~ !is.na(.)
+      ) |>
+        ifelse(71, 70),
+      report_coverage = 34
+    ) |>
+    arrange(iso3, year)
+  
+  pdata_prov
+  
+  # c_newinc_year <- tb |>
+  #   filter(iso3 == input$iso3) |>
+  #   select(year, c_newinc) 
+  # 
+  # pdata <- list()
+  # pdata$c_newinc_prov <- c_newinc_prov
+  # pdata$c_newinc_year <- c_newinc_year
+  # pdata$dcyear_published <- report_year
+  # pdata
   
 })  
 
@@ -100,16 +144,24 @@ pdata_prov <- reactive({
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 pdata_annual <- reactive({
-  req(url())
-  json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
-  cn <- json[[3]]
-  json[[1]] %>% inner_join(cn,by=c("iso2")) -> cn
+  # req(url())
+  # json <- fromJSON(readLines(url(), warn = FALSE, encoding = 'UTF-8'))
+  # cn <- json[[3]]
+  # json[[1]] |> inner_join(cn,by=c("iso2")) -> cn
+  # 
+  req(pdata_country())
+  
+  pdata_annual <- tb |>
+    filter(iso3 %in% pdata_country()) |>
+    select(iso3, country, year, c_newinc)
+  
+  pdata_annual
   
   # cn <- read.csv("https://extranet.who.int/tme/generateCSV.asp?ds=notifications", header = TRUE)
   # 
   # y <- pdata_country()
-  # cn <- filter(cn, iso3 %in% y) %>%
-  #   select(country,iso3,year,c_newinc) %>%
+  # cn <- filter(cn, iso3 %in% y) |>
+  #   select(country,iso3,year,c_newinc) |>
   #   filter(year %in% c(2016:2020))
   
 })  
@@ -122,19 +174,20 @@ pdata_prepandemic <- reactive({
   cn <- pdata_annual()
   pr <- pdata_prov()
   
-  pr2 <- pr %>% select(iso2,report_frequency) %>%
-    add_row(iso2="CG",report_frequency=70)
-  pr2 %>% inner_join(cn,by=c('iso2')) -> prepandemic_year
+  pr2 <- pr |> select(iso3,report_frequency) |>
+    add_row(iso3="COG",report_frequency=70)
+  pr2 |> inner_join(cn,by=c('iso3')) -> prepandemic_year
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
   
-  prepandemic_year_avge <- prepandemic_year %>%
-    filter(year == 2019) %>%
-    group_by(iso2) %>%
-    slice(n()) %>%
-    mutate(prepandemic_year_avge=as.numeric(c_newinc/12)) %>%
-    # mutate(prepandemic_year_avge=as.numeric(ifelse(report_frequency == 71, c_newinc/4, c_newinc/12))) %>%
-    unique() %>%
+  pdata_prepandemic <- prepandemic_year |>
+    filter(year == 2019) |>
+    group_by(iso3) |>
+    slice(n()) |>
+    mutate(prepandemic_year_avge=as.numeric(c_newinc/12)) |>
+    unique() |>
     ungroup()
+  
+  pdata_prepandemic
   
 })  
 
@@ -154,10 +207,10 @@ multi_plot <- reactive({
     data_to_plot$frequency <- as.numeric(data_to_plot$report_frequency)
     data_to_plot$period_prefix <- ifelse(data_to_plot$frequency == 71, "q_", "m_")
     
-    data_to_plot <- data_to_plot %>%
-      group_by(iso2) %>%
+    data_to_plot <- data_to_plot |>
+      group_by(iso3) |>
       mutate(ave_freq = mean(report_frequency),
-             period_prefix = ifelse(ave_freq<71&ave_freq>70,"m_",period_prefix)) %>%
+             period_prefix = ifelse(ave_freq<71&ave_freq>70,"m_",period_prefix)) |>
       mutate(m_01 = ifelse(is.na(m_01), q_1/3, m_01),
              m_02 = ifelse(is.na(m_02), q_1/3, m_02),
              m_03 = ifelse(is.na(m_03), q_1/3, m_03),
@@ -169,7 +222,7 @@ multi_plot <- reactive({
              m_09 = ifelse(is.na(m_09), q_3/3, m_09),
              m_10 = ifelse(is.na(m_10), q_4/3, m_10),
              m_11 = ifelse(is.na(m_11), q_4/3, m_11),
-             m_12 = ifelse(is.na(m_12), q_4/3, m_12)) %>%
+             m_12 = ifelse(is.na(m_12), q_4/3, m_12)) |>
       ungroup()
     
     data_to_plot$period_name  <- ifelse(data_to_plot$period_prefix == "q_", "Quarter", "Month")
@@ -184,28 +237,28 @@ multi_plot <- reactive({
     current_yearmonth <- Sys.Date()
     
     # df only with monthly data
-    df2 <- data_to_plot %>%
+    df2 <- data_to_plot |>
       # Flip to long format
       pivot_longer(cols = starts_with("m"),
                    names_to = "period",
                    # Add "0?" to the names_prefix regex to remove any leading zeros
                    names_prefix = paste0("m_", "0?"),
-                   values_to = "c_newinc") %>%
-      select(country, year, period,period_name, c_newinc) %>%
-      add_row(country="Congo",year=2020,period="1",period_name="Month") %>%
+                   values_to = "c_newinc") |>
+      select(country, year, period,period_name, c_newinc) |>
+      add_row(country="Congo",year="2020",period="1",period_name="Month") |>
       
-      mutate(date = as.Date(paste(year, period, "01", sep="-"), format="%Y-%m-%d")) %>%
-      group_by(country) %>%
-      complete(date = seq.Date(min(date), max(date), by = "month")) %>%
-      mutate(year = year(date), month = month(date)) %>%
+      mutate(date = as.Date(paste(year, period, "01", sep="-"), format="%Y-%m-%d")) |>
+      group_by(country) |>
+      complete(date = seq.Date(min(date), max(date), by = "month")) |>
+      mutate(year = year(date), month = month(date)) |>
       
       # Grouping by year makes Echarts show each year as a separate line (named data series)
-      mutate(text=ifelse(country=="Congo","No Data Available**",NA)) %>%
+      mutate(text=ifelse(country=="Congo","No Data Available**",NA)) |>
       ungroup()
     
     # df to be merged
     if(input$country_set != "30hbc") {
-      df <- df2 %>%
+      df <- df2 |>
         filter(country!="Congo")
     } else {
       df <- df2
@@ -215,26 +268,26 @@ multi_plot <- reactive({
     # load prepandemic data
     df_prepandemic <- pdata_prepandemic()
     
-    df_prepandemic <- df_prepandemic %>%
+    df_prepandemic <- df_prepandemic |>
       select(country,prepandemic_year_avge)
     
-    # df <- df %>%
+    # df <- df |>
     #   inner_join(df_prepandemic, by=c('country'))
     
-    p <- df %>%
-      filter(date < current_yearmonth-60) %>%
+    p <- df |>
+      filter(date < current_yearmonth-60) |>
       # Build the chart object
       ggplot(aes(x = date, y = c_newinc)) +
       geom_line( size = 1 , col ="limegreen"
       ) +
-      scale_x_date(date_labels = "%b %Y", date_breaks = "3 month")  +
+      scale_x_date(date_labels = "%m/%y", date_breaks = "3 month")  +
       theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
       scale_color_manual(values=c()) +
       geom_point(size = 3, col ="limegreen") +
       geom_point(size = 1, color = "white") +
-      geom_segment(data = df_prepandemic, aes(x = as.Date("2020-01-01"), xend = as.Date(current_yearmonth)-60, y = prepandemic_year_avge, yend = prepandemic_year_avge),
-                   arrow = arrow(length = unit(0.03, "npc"), type="closed"),linetype = "dashed",color = "grey40",size=0.9) +
-      geom_text(data = df_prepandemic, aes(label=paste0("2019\naverage"),x=as.Date(current_yearmonth)-60,y=prepandemic_year_avge*1.1),hjust=1.2,col="grey40")+
+      # geom_segment(data = df_prepandemic, aes(x = as.Date("2020-01-01"), xend = as.Date(current_yearmonth)-60, y = prepandemic_year_avge, yend = prepandemic_year_avge),
+      #              arrow = arrow(length = unit(0.03, "npc"), type="closed"),linetype = "dashed",color = "grey40",size=0.9) +
+      # geom_text(data = df_prepandemic, aes(label=paste0("2019\naverage"),x=as.Date(current_yearmonth)-60,y=prepandemic_year_avge*1.1),hjust=1.2,col="grey40")+
       facet_wrap(~ country,strip.position="top",ncol=3, scales="free",drop = FALSE)+
       xlab("Month, year") +
       ylab(NULL)+ scale_y_continuous(labels = function(x) format(x, big.mark = " ",
@@ -266,8 +319,8 @@ multi_plot <- reactive({
     req(pdata_annual())
     df <- pdata_annual()
     
-    p <- df %>%
-      subset(!is.na(c_newinc)) %>%
+    p <- df |>
+      subset(!is.na(c_newinc)) |>
       ggplot(aes(x = year, y = c_newinc, group=1)) +
       geom_line(color = "dodgerblue3", size = 1
       ) +
